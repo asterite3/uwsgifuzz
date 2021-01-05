@@ -127,6 +127,7 @@ int uwsgi_parse_array(char *buffer, uint16_t size, char **argv, uint16_t argvs[]
 int uwsgi_simple_parse_vars(struct wsgi_request *wsgi_req, char *ptrbuf, char *bufferend) {
 
 	uint16_t strsize;
+	printf("uwsgi_simple_parse_vars\n");
 
 	while (ptrbuf < bufferend) {
 		if (ptrbuf + 2 < bufferend) {
@@ -146,6 +147,10 @@ int uwsgi_simple_parse_vars(struct wsgi_request *wsgi_req, char *ptrbuf, char *b
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
 				ptrbuf += strsize;
+				
+				/*int x =write(2, ptrbuf, strsize);
+				x=write(2, "\n", 1);
+				x=x;*/
 				// value can be null (even at the end) so use <=
 				if (ptrbuf + 2 <= bufferend) {
 					memcpy(&strsize, ptrbuf, 2);
@@ -634,6 +639,7 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 	wsgi_req->parsed = 1;
 	wsgi_req->script_name_pos = -1;
 	wsgi_req->path_info_pos = -1;
+	int should_be_redzone = 1;
 
 	while (ptrbuf < bufferend) {
 		if (ptrbuf + 2 < bufferend) {
@@ -648,10 +654,62 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 			}
 
 			ptrbuf += 2;
+
+			if (should_be_redzone) {
+				if (ptrbuf + strsize >= bufferend) {
+					fprintf(stderr, "redzone chunk goes past end of buffer!\n");
+					abort();
+				}
+				if (strsize != 7) {
+					fprintf(stderr, "bad size of redzone chunk name, expected 7, got %d. Value is:\n", strsize);
+					fwrite(ptrbuf, strsize, 1, stderr);
+					fprintf(stderr, "\n");
+					abort();
+				}
+				if (memcmp(ptrbuf, "REDZONE", 7)) {
+					fprintf(stderr, "bad redzone chunk label:\n");
+					fwrite(ptrbuf, 7, 1, stderr);
+					fprintf(stderr, "\n");
+					abort();
+				}
+				char * temp_ptrbuf = ptrbuf;
+				uint16_t temp_strsize = strsize;
+				temp_ptrbuf += temp_strsize;
+				if (temp_ptrbuf + 2 >= bufferend) {
+					fprintf(stderr, "redzone chunk value length goes past end of buffer!\n");
+					abort();
+				}
+				memcpy(&temp_strsize, temp_ptrbuf, 2);
+				temp_ptrbuf+=2;
+				if (temp_strsize != 20) {
+					fprintf(stderr, "redzone chunk value data goes past end of buffer!\n");
+					abort();
+
+				}
+				if (temp_ptrbuf + temp_strsize > bufferend) {
+					fprintf(stderr, "bad size of redzone chunk value, expected 20, got %d.Value is:\n", temp_strsize);
+					fwrite(temp_ptrbuf, temp_strsize, 1, stderr);
+					fprintf(stderr, "\n");
+					abort();
+				}
+				if (memcmp(temp_ptrbuf, "01234567890123456789", 20)) {
+					fprintf(stderr, "bad redzone chunk value:\n");
+					fwrite(temp_ptrbuf, 20, 1, stderr);
+					fprintf(stderr, "\n");
+					abort();
+				}
+			}
+
+			should_be_redzone = !should_be_redzone;
+
 			if (ptrbuf + strsize < bufferend) {
 				// var key
+				//if (strsize == 7 && !) printf("redzone!\n");
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_base = ptrbuf;
 				wsgi_req->hvec[wsgi_req->var_cnt].iov_len = strsize;
+				/*fprintf(stderr, "VAR: ");
+				fwrite(ptrbuf, strsize, 1, stderr);
+				fprintf(stderr, "\n");*/
 				ptrbuf += strsize;
 				// value can be null (even at the end) so use <=
 				if (ptrbuf + 2 <= bufferend) {

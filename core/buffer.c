@@ -286,11 +286,20 @@ int uwsgi_buffer_num64(struct uwsgi_buffer *ub, int64_t num) {
 	return uwsgi_buffer_append(ub, buf, ret);
 }
 
+int uwsgi_buffer_append_keyval_orig(struct uwsgi_buffer *ub, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+    if (uwsgi_buffer_u16le(ub, keylen)) return -1;
+    if (uwsgi_buffer_append(ub, key, keylen)) return -1;
+    if (uwsgi_buffer_u16le(ub, vallen)) return -1;
+    return uwsgi_buffer_append(ub, val, vallen);
+}
+
+int uwsgi_buffer_append_redzone(struct uwsgi_buffer *ub) {
+    return uwsgi_buffer_append_keyval_orig(ub, "REDZONE", 7, "01234567890123456789", 20);
+}
+
 int uwsgi_buffer_append_keyval(struct uwsgi_buffer *ub, char *key, uint16_t keylen, char *val, uint16_t vallen) {
-	if (uwsgi_buffer_u16le(ub, keylen)) return -1;
-	if (uwsgi_buffer_append(ub, key, keylen)) return -1;
-	if (uwsgi_buffer_u16le(ub, vallen)) return -1;
-	return uwsgi_buffer_append(ub, val, vallen);
+	if (uwsgi_buffer_append_redzone(ub)) return -1;
+    return uwsgi_buffer_append_keyval_orig(ub, key, keylen, val, vallen);
 }
 
 int uwsgi_buffer_append_keyval32(struct uwsgi_buffer *ub, char *key, uint32_t keylen, char *val, uint32_t vallen) {

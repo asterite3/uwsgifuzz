@@ -4377,6 +4377,7 @@ void uwsgi_set_sockets_protocols(void);
 
 struct uwsgi_buffer *uwsgi_buffer_new(size_t);
 int uwsgi_buffer_append(struct uwsgi_buffer *, char *, size_t);
+int uwsgi_buffer_append_redzone(struct uwsgi_buffer *);
 int uwsgi_buffer_fix(struct uwsgi_buffer *, size_t);
 int uwsgi_buffer_ensure(struct uwsgi_buffer *, size_t);
 void uwsgi_buffer_destroy(struct uwsgi_buffer *);

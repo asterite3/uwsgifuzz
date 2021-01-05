@@ -312,6 +312,7 @@ static int http_add_uwsgi_header(struct corerouter_peer *peer, char *hh, size_t 
 #endif
 
 done:
+    if (uwsgi_buffer_append_redzone(out)) return -1;
 	if (prefix) keylen += 5;
 
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
@@ -329,6 +330,7 @@ done:
 }
 
 static int http_headers_parse_first_round(struct corerouter_peer *peer) {
+    printf("FIRST ROUND\n");
         struct http_session *hr = (struct http_session *) peer->session;
 	char *ptr = peer->session->main_peer->in->buf;
         char *watermark = ptr + hr->headers_size;
@@ -402,7 +404,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
 
         // ensure we have a protocol
         if (!found) return -1;
-
+        printf("%s %d\n",  uwsgi.hostname, uwsgi.hostname_len);
         memcpy(peer->key, uwsgi.hostname, uwsgi.hostname_len);
         peer->key_len = uwsgi.hostname_len;
 
@@ -426,6 +428,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
 				if ((ptr - base) - 6 <= 0xff) {
 					peer->key_len = (ptr - base) - 6;
 					memcpy(peer->key, base + 6, peer->key_len);
+                    printf("%s %d\n",  peer->key, peer->key_len);
 				}
                         }
 
@@ -603,7 +606,9 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 		if (*ptr == ' ') {
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_METHOD", 14, base, ptr - base)) return -1;
 			// on SOURCE METHOD, force raw body
+            printf("manage source: %d\n", uhttp.manage_source);
 			if (uhttp.manage_source && !uwsgi_strncmp(base, ptr - base, "SOURCE", 6)) {
+
 				hr->raw_body = 1;
 			}
 			ptr++;
@@ -688,6 +693,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 			if (*(ptr + 1) != '\n')
 				return 0;
 			if (uwsgi_buffer_append_keyval(out, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
+            printf("keepalives enabled: %d\n", uhttp.keepalive);
 			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
 				hr->session.can_keepalive = 1;
 			}
@@ -886,6 +892,7 @@ ssize_t hr_instance_write(struct corerouter_peer *peer) {
         if (cr_write_complete(peer)) {
 		// destroy the buffer used for the uwsgi packet
 		if (peer->out_need_free == 1) {
+            printf("buffer destroyed\n");
 			uwsgi_buffer_destroy(peer->out);
 			peer->out_need_free = 0;
 			peer->out = NULL;
@@ -1150,6 +1157,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 	// read until \r\n\r\n is found
 	size_t j;
 	size_t len = main_peer->in->pos;
+    printf("pos %ld\n", len);
 	char *ptr = main_peer->in->buf;
 
 	hr->rnrn = 0;
@@ -1206,6 +1214,7 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			// parse HTTP request
 			if (new_peer->proto != 'h' && !uhttp.proto_http) {
 				if (http_headers_parse(new_peer, skip)) return -1;
+                if (uwsgi_buffer_append_redzone(new_peer->out)) return -1;
 				// fix modifiers
                         	if (uhttp.modifier1)
                                 	new_peer->modifier1 = uhttp.modifier1;
@@ -1284,9 +1293,14 @@ ssize_t hr_read(struct corerouter_peer *main_peer) {
         // try to always leave 4k available (this will dinamically increase the buffer...)
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
         ssize_t len = cr_read(main_peer, "hr_read()");
+        printf("cr_read done: %ld\n", len);
+        printf("buf len: %ld\n", main_peer->in->len);
         if (!len) return 0;
 
-        return http_parse(main_peer);
+        ssize_t ret = http_parse(main_peer);
+        printf("ret: %ld\n", ret);
+
+        return ret;
 }
 
 
@@ -1368,6 +1382,7 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
         cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
 	// default hook
+    printf("alloc session\n");
 	cs->main_peer->last_hook_read = hr_read;
 
 	// headers timeout
