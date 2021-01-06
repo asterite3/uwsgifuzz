@@ -4,6 +4,9 @@
 
 extern struct uwsgi_server uwsgi;
 
+uint64_t proto_base_add_redzone(struct wsgi_request * wsgi_req);
+uint64_t proto_base_add_uwsgi_var_orig(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen);
+
 int http_status_code(char *buf, int len) {
 	char *p = buf;
 
@@ -74,7 +77,7 @@ static uint64_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 
 	if (has_prefix) keylen += 5;
 
-	if (buffer + keylen + hvlen + 2 + 2 >= watermark) {
+	if (buffer + keylen + hvlen + 2 + 2 + 31 >= watermark) {
 		if (keylen <= 0xff && hvlen <= 0xff) {
 			if (has_prefix) {
 				uwsgi_log("[WARNING] unable to add HTTP_%.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen - 5, hh, hvlen, hv);
@@ -88,6 +91,10 @@ static uint64_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 		}
 		return 0;
 	}
+
+	wsgi_req->len += proto_base_add_redzone(wsgi_req);
+	buffer = wsgi_req->buffer + wsgi_req->len;
+	ptr = buffer;
 
 
 	*ptr++ = (uint8_t) (keylen & 0xff);
@@ -527,6 +534,13 @@ parse:
 				wsgi_req->proto_parser_remains_buf = (wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos) - wsgi_req->proto_parser_remains;
 			}
 			if (http_parse(wsgi_req, ptr)) return -1;
+			if (wsgi_req->len + 31 > uwsgi.buffer_size) {
+				fprintf(stderr, "not enough space for final redzone!!");
+				abort();
+			}
+			//wsgi_req->len += proto_base_add_redzone(wsgi_req);
+			wsgi_req->len += proto_base_add_uwsgi_var_orig(wsgi_req, "REDZONE", 7, "01234567890123456789", 20);
+
 			wsgi_req->uh->modifier1 = uwsgi.http_modifier1;
 			wsgi_req->uh->modifier2 = uwsgi.http_modifier2;
 			return UWSGI_OK;

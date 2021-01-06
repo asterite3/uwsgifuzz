@@ -62,9 +62,7 @@ uint64_t proto_base_add_uwsgi_header(struct wsgi_request *wsgi_req, char *key, u
 	return keylen + vallen + 2 + 2;
 }
 
-
-
-uint64_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+uint64_t proto_base_add_uwsgi_var_orig(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
 
 
 	char *buffer = wsgi_req->buffer + wsgi_req->len;
@@ -91,6 +89,18 @@ uint64_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uin
 #endif
 
 	return keylen + vallen + 2 + 2;
+}
+uint64_t proto_base_add_redzone(struct wsgi_request * wsgi_req) {
+    return proto_base_add_uwsgi_var_orig(wsgi_req, "REDZONE", 7, "01234567890123456789", 20);
+}
+
+uint64_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+    int n = proto_base_add_redzone(wsgi_req);
+    if (n == 0) {
+        return 0;
+    }
+    wsgi_req->len += n;
+    return proto_base_add_uwsgi_var_orig(wsgi_req, key, keylen, val, vallen);
 }
 
 
