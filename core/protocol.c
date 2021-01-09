@@ -1,4 +1,5 @@
 #include "uwsgi.h"
+//#include <execinfo.h>
 
 extern struct uwsgi_server uwsgi;
 
@@ -608,6 +609,13 @@ void uwsgi_proto_hooks_setup() {
 
 
 int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
+	 // get void*'s for all entries on the stack
+	/*void *ba[10];
+  size_t bsize = backtrace(ba, 10);
+
+  // print out all the frames to stderr
+  //fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(ba, bsize, STDERR_FILENO);*/
 
 	char *buffer = wsgi_req->buffer;
 
@@ -654,6 +662,8 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 			}
 
 			ptrbuf += 2;
+
+			//printf("protocol at %d\n", getpid());
 
 			if (should_be_redzone) {
 				if (ptrbuf + strsize >= bufferend) {
@@ -750,17 +760,20 @@ int uwsgi_parse_vars(struct wsgi_request *wsgi_req) {
 					}
 					else {
 						uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
+						abort();
 						return -1;
 					}
 				}
 				else {
 					uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
+					abort();
 					return -1;
 				}
 			}
 		}
 		else {
 			uwsgi_log("invalid uwsgi request (current strsize: %d). skip.\n", strsize);
+			abort();
 			return -1;
 		}
 	}

@@ -1018,7 +1018,6 @@ int uwsgi_corerouter_init(struct uwsgi_corerouter *ucr) {
 
 		ucr->has_backends = uwsgi_corerouter_has_backends(ucr);
 
-
 		uwsgi_corerouter_setup_sockets(ucr);
 
 		if (ucr->processes < 1)

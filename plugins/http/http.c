@@ -315,7 +315,10 @@ done:
     if (uwsgi_buffer_append_redzone(out)) return -1;
 	if (prefix) keylen += 5;
 
+    //uint8_t bad_len = keylen;
+
 	if (uwsgi_buffer_u16le(out, keylen)) return -1;
+    //if (uwsgi_buffer_u16le(out, keylen)) return -1;
 
 	if (prefix) {
 		if (uwsgi_buffer_append(out, "HTTP_", 5)) return -1;
@@ -330,7 +333,6 @@ done:
 }
 
 static int http_headers_parse_first_round(struct corerouter_peer *peer) {
-    printf("FIRST ROUND\n");
         struct http_session *hr = (struct http_session *) peer->session;
 	char *ptr = peer->session->main_peer->in->buf;
         char *watermark = ptr + hr->headers_size;
@@ -404,7 +406,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
 
         // ensure we have a protocol
         if (!found) return -1;
-        printf("%s %d\n",  uwsgi.hostname, uwsgi.hostname_len);
+        //printf("%s %d\n",  uwsgi.hostname, uwsgi.hostname_len);
         memcpy(peer->key, uwsgi.hostname, uwsgi.hostname_len);
         peer->key_len = uwsgi.hostname_len;
 
@@ -428,7 +430,7 @@ static int http_headers_parse_first_round(struct corerouter_peer *peer) {
 				if ((ptr - base) - 6 <= 0xff) {
 					peer->key_len = (ptr - base) - 6;
 					memcpy(peer->key, base + 6, peer->key_len);
-                    printf("%s %d\n",  peer->key, peer->key_len);
+                    //printf("%s %d\n",  peer->key, peer->key_len);
 				}
                         }
 
@@ -606,7 +608,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 		if (*ptr == ' ') {
 			if (uwsgi_buffer_append_keyval(out, "REQUEST_METHOD", 14, base, ptr - base)) return -1;
 			// on SOURCE METHOD, force raw body
-            printf("manage source: %d\n", uhttp.manage_source);
+            //printf("manage source: %d\n", uhttp.manage_source);
 			if (uhttp.manage_source && !uwsgi_strncmp(base, ptr - base, "SOURCE", 6)) {
 
 				hr->raw_body = 1;
@@ -665,7 +667,10 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
                                 	hr->path_info_len = new_path_info;
                         	}
 				http_url_decode(base, &hr->path_info_len, hr->path_info);
-				if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, hr->path_info, hr->path_info_len)) return -1;
+				if (uwsgi_buffer_append_keyval(out, "PATH_INFO", 9, hr->path_info, hr->path_info_len)) {
+                    fprintf(stderr, "failed to write path info var to buffer!\n");
+                    return -1;
+                }
 				if (uwsgi_buffer_append_keyval(out, "QUERY_STRING", 12, "", 0)) return -1;
 			}
 			else {
@@ -693,7 +698,7 @@ int http_headers_parse(struct corerouter_peer *peer, int skip) {
 			if (*(ptr + 1) != '\n')
 				return 0;
 			if (uwsgi_buffer_append_keyval(out, "SERVER_PROTOCOL", 15, base, ptr - base)) return -1;
-            printf("keepalives enabled: %d\n", uhttp.keepalive);
+            //printf("keepalives enabled: %d\n", uhttp.keepalive);
 			if (uhttp.keepalive && !uwsgi_strncmp("HTTP/1.1", 8, base, ptr-base)) {
 				hr->session.can_keepalive = 1;
 			}
@@ -1111,6 +1116,26 @@ ssize_t hr_instance_read(struct corerouter_peer *peer) {
 	return 1;
 }
 
+struct corerouter_peer *uwsgi_cr_peer_make_new() {
+    struct corerouter_peer *old_peers = NULL, *peers = NULL; 
+    
+
+    peers = uwsgi_calloc(sizeof(struct corerouter_peer));
+    peers->session = NULL;
+    peers->fd = -1;
+    // create input buffer
+    size_t bufsize = 65536;//cs->corerouter->buffer_size;
+    if (!bufsize) bufsize = uwsgi.page_size;
+    peers->in = uwsgi_buffer_new(bufsize);
+    // add timeout
+    //peers->current_timeout = cs->corerouter->socket_timeout;
+      //  peers->timeout = cr_add_timeout(cs->corerouter, peers);
+    peers->prev = old_peers;
+
+    
+
+    return peers;
+}
 
 
 ssize_t http_parse(struct corerouter_peer *main_peer) {
@@ -1140,24 +1165,24 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 					if (hr->content_length == 0) {
 						main_peer->disabled = 1;
                                 		// stop reading from the client
-                                		if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
+                                		//if (uwsgi_cr_set_hooks(main_peer, NULL, NULL)) return -1;
 					}
 				}
 			}
 		}
 		main_peer->session->peers->out = main_peer->in;
 		main_peer->session->peers->out_pos = 0;
-		cr_write_to_backend(main_peer->session->peers, hr_instance_write);
+		//cr_write_to_backend(main_peer->session->peers, hr_instance_write);
 		return 1;
 	}
 
 	// ensure the headers timeout is honoured
-	http_set_timeout(main_peer, uhttp.headers_timeout);
+	//http_set_timeout(main_peer, uhttp.headers_timeout);
 
 	// read until \r\n\r\n is found
 	size_t j;
 	size_t len = main_peer->in->pos;
-    printf("pos %ld\n", len);
+    //printf("pos %ld\n", len);
 	char *ptr = main_peer->in->buf;
 
 	hr->rnrn = 0;
@@ -1181,10 +1206,12 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				hr->remains = len - (j+1);
 			}
 
-			struct uwsgi_corerouter *ucr = main_peer->session->corerouter;
+			//struct uwsgi_corerouter *ucr = main_peer->session->corerouter;
 
 			// create a new peer
-                	struct corerouter_peer *new_peer = uwsgi_cr_peer_add(main_peer->session);
+                	struct corerouter_peer *new_peer = uwsgi_cr_peer_make_new();
+                    main_peer->prev = new_peer;
+                    new_peer->session = main_peer->session;
 			// default hook
 			new_peer->last_hook_read = hr_instance_read;
 		
@@ -1192,7 +1219,10 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			if (skip < 0) return -1;
 
 			// check for a valid hostname
-			if (new_peer->key_len == 0) return -1;
+			if (new_peer->key_len == 0) {
+                //printf("bad key len\n");
+                return -1;
+            }
 
 #ifdef UWSGI_SSL
 			if (hr->force_https) {
@@ -1204,12 +1234,15 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 				if (rebuild_key_for_mountpoint(hr, new_peer)) return -1;
 			}
 			// find an instance using the key
-                	if (ucr->mapper(ucr, new_peer))
-                        	return -1;
+                	/*if (ucr->mapper(ucr, new_peer))
+                        	return -1;*/
 
                 	// check instance
-                	if (new_peer->instance_address_len == 0)
+                	/*if (new_peer->instance_address_len == 0) {
+                        printf("bad instance_address_len!!\n");
+
                         	return -1;
+                        }*/
 
 			// parse HTTP request
 			if (new_peer->proto != 'h' && !uhttp.proto_http) {
@@ -1276,7 +1309,22 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 			http_set_timeout(main_peer, uhttp.cr.socket_timeout);
 			// set peer timeout
 			http_set_timeout(new_peer, uhttp.connect_timeout);
-                	cr_connect(new_peer, hr_instance_connected);
+            //fwrite(new_peer->instance_address, new_peer->instance_address_len, 1,stderr);
+            //fwrite(new_peer->out->buf, new_peer->out->pos, 1, stderr);
+            //fprintf(stderr, "\n" );
+            //sleep(10000);
+                	//cr_connect(new_peer, hr_instance_connected);
+            FILE * buf_file = fopen("/run/user/1000/fuzz_buf", "w");
+            if (buf_file == NULL) {
+                perror("fopen");
+                abort();
+            }
+            size_t n_written = fwrite(new_peer->out->buf, 1, new_peer->out->pos, buf_file);
+            if (n_written != new_peer->out->pos) {
+                perror("fwrite written less than expected");
+                abort();
+            }
+            fclose(buf_file);
 			break;
 		}
 		else {
@@ -1290,16 +1338,26 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
 
 // read from client
 ssize_t hr_read(struct corerouter_peer *main_peer) {
+        //printf("hr_read at %d\n", getpid());
         // try to always leave 4k available (this will dinamically increase the buffer...)
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
-        ssize_t len = cr_read(main_peer, "hr_read()");
-        printf("cr_read done: %ld\n", len);
-        printf("buf len: %ld\n", main_peer->in->len);
+        //ssize_t len = cr_read(main_peer, "hr_read()");
+        //ssize_t len = read(((struct http_session *) main_peer->session)->fuzz_fd, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
+        int fuzz_fd = open("/tmp/fuzz", O_RDONLY);
+        if (fuzz_fd < 0) {
+            perror("open");
+            abort();
+        }
+        ssize_t len = read(fuzz_fd, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
+        main_peer->in->pos+=len;
+        close(fuzz_fd);
+        //printf("cr_read done: %ld\n", len);
+        //printf("buf len: %ld\n", main_peer->in->len);
+        //printf("len: %ld\n", len);
         if (!len) return 0;
 
         ssize_t ret = http_parse(main_peer);
-        printf("ret: %ld\n", ret);
-
+        //printf("ret: %ld\n", ret);
         return ret;
 }
 
@@ -1307,6 +1365,7 @@ ssize_t hr_read(struct corerouter_peer *main_peer) {
 
 void hr_session_close(struct corerouter_session *cs) {
 	struct http_session *hr = (struct http_session *) cs;
+    close(hr->fuzz_fd);
 	if (hr->path_info) {
 		free(hr->path_info);
 	}
@@ -1374,15 +1433,21 @@ retry:
 
 
 int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket *ugs, struct corerouter_session *cs, struct sockaddr *sa, socklen_t s_len) {
-
+    
 	if (!uhttp.headers_timeout) uhttp.headers_timeout = uhttp.cr.socket_timeout;
 	if (!uhttp.connect_timeout) uhttp.connect_timeout = uhttp.cr.socket_timeout;
 
 	// set the retry hook
         cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
+    hr->fuzz_fd = open("/tmp/fuzz", O_RDONLY);
+    if (hr->fuzz_fd < 0) {
+        perror("open");
+        abort();
+    }
 	// default hook
     printf("alloc session\n");
+
 	cs->main_peer->last_hook_read = hr_read;
 
 	// headers timeout
@@ -1449,7 +1514,9 @@ int http_init() {
 		uhttp.cr.use_socket = 1;
 		uhttp.cr.socket_num = 0;
 	}
+
 	uwsgi_corerouter_init((struct uwsgi_corerouter *) &uhttp);
+
 	return 0;
 }
 

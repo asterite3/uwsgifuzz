@@ -97,8 +97,11 @@ static uint64_t http_add_uwsgi_header(struct wsgi_request *wsgi_req, char *hh, s
 	ptr = buffer;
 
 
+	//uint8_t bad_keylen = keylen;
 	*ptr++ = (uint8_t) (keylen & 0xff);
 	*ptr++ = (uint8_t) ((keylen >> 8) & 0xff);
+	//*ptr++ = (uint8_t) (bad_keylen & 0xff);
+	//*ptr++ = (uint8_t) ((bad_keylen >> 8) & 0xff);
 
 	if (has_prefix) {
 		memcpy(ptr, "HTTP_", 5);
@@ -210,7 +213,6 @@ char *proxy1_parse(char *ptr, char *watermark, char **src, uint16_t *src_len, ch
 }
 
 static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
-
 	char *ptr = wsgi_req->proto_parser_buf;
 	char *base = ptr;
 	char *query_string = NULL;
@@ -326,7 +328,6 @@ static int http_parse(struct wsgi_request *wsgi_req, char *watermark) {
 			wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "SERVER_PORT", 11, "80", 2);
 		}
 	}
-
 	// REMOTE_ADDR
 	if (proxy_src) {
 		wsgi_req->len += proto_base_add_uwsgi_var(wsgi_req, "REMOTE_ADDR", 11, proxy_src, proxy_src_len);
@@ -479,8 +480,6 @@ clear:
 	return -1;
 }
 
-
-
 static int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 
 	ssize_t j;
@@ -496,12 +495,32 @@ static int uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
 		return -1;
 	}
 
-	ssize_t len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
+	//ssize_t len = read(wsgi_req->fd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
+	int fuzzfd = open("/tmp/fuzz", O_RDONLY);
+	if (fuzzfd < 0) {
+		perror("open");
+		abort();
+	}
+	struct stat statbuf;
+	if (fstat(fuzzfd, &statbuf)) {
+		perror("stat");
+		abort();
+	}
+	ssize_t len = read(fuzzfd, wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos, uwsgi.buffer_size - wsgi_req->proto_parser_pos);
+	if (len != statbuf.st_size) {
+		fprintf(stderr, "read %ld less than expected %ld\n", len, statbuf.st_size);
+		perror("read");
+		abort();
+	}
+	close(fuzzfd);
+
 	if (len > 0) {
 		goto parse;
 	}
 	if (len < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS) {
+					fprintf(stderr, "bad read!!!!!\n");
+					abort();
                 	return UWSGI_AGAIN;
                 }
 		uwsgi_error("uwsgi_proto_http_parser()");
@@ -534,12 +553,13 @@ parse:
 				wsgi_req->proto_parser_remains_buf = (wsgi_req->proto_parser_buf + wsgi_req->proto_parser_pos) - wsgi_req->proto_parser_remains;
 			}
 			if (http_parse(wsgi_req, ptr)) return -1;
+
 			if (wsgi_req->len + 31 > uwsgi.buffer_size) {
 				fprintf(stderr, "not enough space for final redzone!!");
-				abort();
+				return -1;
 			}
-			//wsgi_req->len += proto_base_add_redzone(wsgi_req);
-			wsgi_req->len += proto_base_add_uwsgi_var_orig(wsgi_req, "REDZONE", 7, "01234567890123456789", 20);
+			wsgi_req->len += proto_base_add_redzone(wsgi_req);
+			//wsgi_req->buffer[wsgi_req->len-10] = 'x';
 
 			wsgi_req->uh->modifier1 = uwsgi.http_modifier1;
 			wsgi_req->uh->modifier2 = uwsgi.http_modifier2;
@@ -551,7 +571,13 @@ parse:
 		ptr++;
 	}
 
-	return UWSGI_AGAIN;
+	//return UWSGI_AGAIN;
+	return -1;
+}
+
+
+int external_uwsgi_proto_http_parser(struct wsgi_request *wsgi_req) {
+	return uwsgi_proto_http_parser(wsgi_req);
 }
 
 static void uwsgi_httpize_var(char *buf, size_t len) {
@@ -889,7 +915,7 @@ static int uwsgi_proto_https_parser(struct wsgi_request *wsgi_req) {
         }
 
         if (uwsgi.buffer_size - wsgi_req->proto_parser_pos == 0) {
-                uwsgi_log("invalid HTTPS request size (max %u)...skip\n", uwsgi.buffer_size);
+                //uwsgi_log("invalid HTTPS request size (max %u)...skip\n", uwsgi.buffer_size);
                 return -1;
         }
 

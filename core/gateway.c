@@ -2,8 +2,7 @@
 
 extern struct uwsgi_server uwsgi;
 
-struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), void *data) {
-
+struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), void *data) {	
 	struct uwsgi_gateway *ug;
 	int num = 1, i;
 
@@ -43,11 +42,17 @@ struct uwsgi_gateway *register_gateway(char *name, void (*loop) (int, void *), v
 	uwsgi_socket_nb(ug->internal_subscription_pipe[0]);
 	uwsgi_socket_nb(ug->internal_subscription_pipe[1]);
 
+	//sleep(3);
+	//printf("mp %d\n", uwsgi.master_process );
+
 	if (!uwsgi.master_process && !uwsgi.force_gateway)
 		gateway_respawn(ushared->gateways_cnt);
 
 	ushared->gateways_cnt++;
 
+                
+    //printf("HERE\n");
+    //sleep(30000);
 
 	return ug;
 }

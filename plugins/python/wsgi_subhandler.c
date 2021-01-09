@@ -136,14 +136,19 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
 	char *path_info;
 
         for (i = 0; i < wsgi_req->var_cnt; i += 2) {
+        size_t badnamelen = wsgi_req->hvec[i].iov_len;
+
+        /*if (badnamelen > 300) {
+            badnamelen = 1000000000;
+        }*/
 #ifdef UWSGI_DEBUG
                 uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 #endif
 #ifdef PYTHREE
-                pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len, NULL);
+                pydictkey = PyUnicode_DecodeLatin1(wsgi_req->hvec[i].iov_base, badnamelen, NULL);
                 pydictvalue = PyUnicode_DecodeLatin1(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len, NULL);
 #else
-                pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i].iov_len);
+                pydictkey = PyString_FromStringAndSize(wsgi_req->hvec[i].iov_base, badnamelen);
                 pydictvalue = PyString_FromStringAndSize(wsgi_req->hvec[i + 1].iov_base, wsgi_req->hvec[i + 1].iov_len);
 #endif
 

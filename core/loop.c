@@ -6,6 +6,7 @@ struct wsgi_request *threaded_current_wsgi_req() {
 	return pthread_getspecific(uwsgi.tur_key);
 }
 struct wsgi_request *simple_current_wsgi_req() {
+	fprintf(stderr, "curr: %p %d\n", uwsgi.wsgi_req, getpid());
 	return uwsgi.wsgi_req;
 }
 
@@ -59,7 +60,7 @@ void *uwsgi_get_loop(char *name) {
 */
 
 void simple_loop() {
-	uwsgi_loop_cores_run(simple_loop_run);
+	uwsgi_loop_cores_run(simple_loop_run);return;
 	if (uwsgi.workers[uwsgi.mywid].shutdown_sockets)
 		uwsgi_shutdown_all_sockets();
 }
@@ -119,6 +120,7 @@ void *simple_loop_run(void *arg1) {
 	long core_id = (long) arg1;
 
 	struct wsgi_request *wsgi_req = &uwsgi.workers[uwsgi.mywid].cores[core_id].req;
+	//printf("wsgi_req %d %ld %p\n", uwsgi.mywid, core_id,&uwsgi.workers[uwsgi.mywid].cores[core_id].req);
 
 	if (uwsgi.threads > 1) {
 		uwsgi_setup_thread_req(core_id, wsgi_req);
@@ -133,8 +135,9 @@ void *simple_loop_run(void *arg1) {
 		event_queue_add_fd_read(main_queue, uwsgi.my_signal_socket);
 	}
 
-
+	printf("run uwsgi loop %d %ld\n", uwsgi.mywid, core_id);
 	// ok we are ready, let's start managing requests and signals
+	return NULL;
 	while (uwsgi.workers[uwsgi.mywid].manage_next_request) {
 
 		wsgi_req_setup(wsgi_req, core_id, NULL);

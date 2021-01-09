@@ -681,7 +681,7 @@ class uConf(object):
             self.include_path += os.environ['UWSGI_INCLUDES'].split(',')
 
         self.cflags = [
-            '-O2',
+            #'-O2',
             '-I.',
             '-Wall',
             '-Werror',

@@ -1380,6 +1380,7 @@ long uwsgi_num_from_file(char *filename, int quiet) {
 void wsgi_req_setup(struct wsgi_request *wsgi_req, int async_id, struct uwsgi_socket *uwsgi_sock) {
 
 	wsgi_req->app_id = -1;
+	uwsgi.wsgi_req=wsgi_req;
 
 	wsgi_req->async_id = async_id;
 	wsgi_req->sendfile_fd = -1;
@@ -1446,9 +1447,12 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 	if (!wsgi_req->socket->edge_trigger) {
 		for (;;) {
 			int ret = wsgi_req->socket->proto(wsgi_req);
-			if (ret == UWSGI_OK)
+			if (ret == UWSGI_OK) {
+				//fprintf(stderr, "proto is OK\n" );
 				break;
+			}
 			if (ret == UWSGI_AGAIN) {
+				fprintf(stderr, "proto is AGAIN\n" );
 				ret = uwsgi_wait_read_req(wsgi_req);
 				if (ret <= 0)
 					return -1;
@@ -1467,8 +1471,12 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 	if (uwsgi_apply_routes(wsgi_req) == UWSGI_ROUTE_BREAK)
 		return 0;
 #endif
-
+			/*sleep(1);
+			printf("REQUEST\n");*/
+	close(wsgi_req->fd);
+	wsgi_req->fd=dup(2);
 	wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
+	//sleep(20000);
 
 	return 0;
 }

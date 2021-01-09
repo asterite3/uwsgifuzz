@@ -101,6 +101,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 		wsgi_req->is_error_routing = 0;
 	}
 #endif
+    fprintf(stderr, "prep status\n" );
 	if (status_len <= 4) {
 		char *new_sc = NULL;
 		size_t new_sc_len = 0;
@@ -118,6 +119,7 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 		free(new_sc);
 	}
 	else {
+        //fprintf(stderr, "KEK LOL %p\n", wsgi_req);
 		hh = wsgi_req->socket->proto_prepare_headers(wsgi_req, status, status_len);
 	}
 	if (!hh) {wsgi_req->write_errors++; return -1;}

@@ -145,6 +145,7 @@ struct http_session {
         uint16_t proxy_src_len;
         uint16_t proxy_src_port_len;
 
+        int fuzz_fd;
 };
 
 
@@ -195,3 +196,5 @@ void hr_session_close(struct corerouter_session *);
 ssize_t http_parse(struct corerouter_peer *);
 
 int http_response_parse(struct http_session *, struct uwsgi_buffer *, size_t);
+
+ssize_t hr_read(struct corerouter_peer *main_peer);

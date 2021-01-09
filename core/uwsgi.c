@@ -2157,8 +2157,10 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	//initialize masterpid with a default value
 	masterpid = getpid();
 
+
 	memset(&uwsgi, 0, sizeof(struct uwsgi_server));
 	uwsgi_proto_hooks_setup();
+
 	uwsgi.cwd = uwsgi_get_cwd();
 
 	init_magic_table(uwsgi.magic_table);
@@ -2279,6 +2281,7 @@ void uwsgi_setup(int argc, char *argv[], char *envp[]) {
 	uwsgi_register_logchunks();
 	uwsgi_log_encoders_register_embedded();
 
+
 	// register base metrics (so plugins can override them)
 	uwsgi_metrics_collectors_setup();
 
@@ -2335,6 +2338,7 @@ configure:
 
 	// ok, the options dictionary is available, lets manage it
 	uwsgi_configure();
+
 
 	// stop the execution until a connection arrives on the fork socket
 	if (uwsgi.fork_socket) {
@@ -2419,6 +2423,7 @@ configure:
                 uwsgi_setup_log_master();
                 uwsgi_threaded_logger_worker_spawn();
         }
+
 
 	// setup offload engines
 	uwsgi_offload_engines_register_all();
@@ -2929,6 +2934,7 @@ int uwsgi_start(void *v_argv) {
 			uwsgi.gp[i]->init();
 		}
 	}
+	
 
 	if (!uwsgi.no_server) {
 
@@ -3136,6 +3142,8 @@ unsafe:
 	// initialize post buffering values
 	if (uwsgi.post_buffering > 0)
 		uwsgi_setup_post_buffering();
+
+
 
 	// initialize workers/master shared memory segments
 	uwsgi_setup_workers();
@@ -3574,7 +3582,8 @@ int uwsgi_run() {
 
 	uwsgi_worker_run();
 	// never here
-	_exit(0);
+	return 0;
+	//_exit(0);
 
 }
 
@@ -3665,7 +3674,7 @@ void uwsgi_worker_run() {
 	uwsgi_ignition();
 
 	// never here
-	exit(0);
+	//exit(0);
 
 }
 
@@ -3734,7 +3743,7 @@ void uwsgi_ignition() {
 	}
 	else {
 		if (uwsgi.async < 1) {
-			simple_loop();
+			simple_loop();return;
 		}
 		else {
 			async_loop();
@@ -3742,7 +3751,7 @@ void uwsgi_ignition() {
 	}
 
 	// end of the process...
-	end_me(0);
+	//end_me(0);
 }
 
 /*

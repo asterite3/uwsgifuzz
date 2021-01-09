@@ -304,9 +304,7 @@ PyObject *py_eventfd_write(PyObject * self, PyObject * args) {
 }
 
 int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
-
 	if (wsgi_req->is_raw) return uwsgi_request_python_raw(wsgi_req);
-
 	struct uwsgi_app *wi;
 
 	if (wsgi_req->async_force_again) {
@@ -347,7 +345,6 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;
 	}
-
 	if (wsgi_req->dynamic) {
         	// this part must be heavy locked in threaded modes
                 if (uwsgi.threads > 1) {
@@ -412,8 +409,9 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	// create WSGI environ
 	wsgi_req->async_environ = up.wsgi_env_create(wsgi_req, wi);
 
-
+	//fprintf(stderr, "run request_subhandler %p\n" ,wsgi_req);
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
+	//fprintf(stderr, "run request_subhandler DONE\n" );
 
 
 	if (wsgi_req->async_result) {

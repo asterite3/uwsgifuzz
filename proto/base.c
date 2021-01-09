@@ -70,7 +70,7 @@ uint64_t proto_base_add_uwsgi_var_orig(struct wsgi_request * wsgi_req, char *key
 	char *ptr = buffer;
 
 	if (buffer + keylen + vallen + 2 + 2 >= watermark) {
-		uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer size\n", keylen, key, vallen, val);
+		uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet, consider increasing buffer siZe\n", keylen, key, vallen, val);
 		return 0;
 	}
 
@@ -95,6 +95,10 @@ uint64_t proto_base_add_redzone(struct wsgi_request * wsgi_req) {
 }
 
 uint64_t proto_base_add_uwsgi_var(struct wsgi_request * wsgi_req, char *key, uint16_t keylen, char *val, uint16_t vallen) {
+    if (wsgi_req->len + keylen + vallen + 2 + 2 + 31 >= uwsgi.buffer_size) {
+        uwsgi_log("[WARNING] unable to add %.*s=%.*s to uwsgi packet with redzone, consider increasing buffer size\n", keylen, key, vallen, val);
+        return 0;
+    }
     int n = proto_base_add_redzone(wsgi_req);
     if (n == 0) {
         return 0;
@@ -225,6 +229,7 @@ int uwsgi_proto_base_writev(struct wsgi_request * wsgi_req, struct iovec *iov, s
 	size_t i,needed = 0;
 	// count the number of bytes to write
 	for(i=0;i<*len;i++) needed += iov[i].iov_len;
+    //fprintf(stderr, "write to %d\n", wsgi_req->fd);
 	ssize_t wlen = writev(wsgi_req->fd, iov, *len);
         if (wlen > 0) {
 		wsgi_req->write_pos += wlen;
