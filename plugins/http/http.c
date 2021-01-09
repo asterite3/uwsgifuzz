@@ -8,6 +8,9 @@
 
 struct uwsgi_http uhttp;
 
+extern FILE * fuzz_buf_file;
+extern int fuzz_fd;
+
 struct uwsgi_option http_options[] = {
 	{"http", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_corerouter, &uhttp, 0},
 	{"httprouter", required_argument, 0, "add an http router/server on the specified address", uwsgi_opt_corerouter, &uhttp, 0},
@@ -1314,17 +1317,23 @@ ssize_t http_parse(struct corerouter_peer *main_peer) {
             //fprintf(stderr, "\n" );
             //sleep(10000);
                 	//cr_connect(new_peer, hr_instance_connected);
-            FILE * buf_file = fopen("/run/user/1000/fuzz_buf", "w");
-            if (buf_file == NULL) {
-                perror("fopen");
+            //FILE * buf_file = fdopen(fuzz_fd, "w");//fopen("/run/user/1000/fuzz_buf", "w");
+            if (fuzz_buf_file == NULL) {
+                //perror("fopen");
+                //perror("fdopen");
+                fprintf(stderr, "fuzz_buf_file is NULL\n" );
                 abort();
             }
-            size_t n_written = fwrite(new_peer->out->buf, 1, new_peer->out->pos, buf_file);
+            size_t n_written = fwrite(new_peer->out->buf, 1, new_peer->out->pos, fuzz_buf_file);
             if (n_written != new_peer->out->pos) {
                 perror("fwrite written less than expected");
                 abort();
             }
-            fclose(buf_file);
+            if (fflush(fuzz_buf_file)) {
+                perror("fflush");
+                abort();
+            }
+            //fclose(buf_file);
 			break;
 		}
 		else {
@@ -1343,14 +1352,14 @@ ssize_t hr_read(struct corerouter_peer *main_peer) {
         if (uwsgi_buffer_ensure(main_peer->in, uwsgi.page_size)) return -1;
         //ssize_t len = cr_read(main_peer, "hr_read()");
         //ssize_t len = read(((struct http_session *) main_peer->session)->fuzz_fd, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
-        int fuzz_fd = open("/tmp/fuzz", O_RDONLY);
+        /*int fuzz_fd = open("/tmp/fuzz", O_RDONLY);
         if (fuzz_fd < 0) {
             perror("open");
             abort();
-        }
+        }*/
         ssize_t len = read(fuzz_fd, main_peer->in->buf + main_peer->in->pos, main_peer->in->len - main_peer->in->pos);
         main_peer->in->pos+=len;
-        close(fuzz_fd);
+        //close(fuzz_fd);
         //printf("cr_read done: %ld\n", len);
         //printf("buf len: %ld\n", main_peer->in->len);
         //printf("len: %ld\n", len);
@@ -1365,7 +1374,7 @@ ssize_t hr_read(struct corerouter_peer *main_peer) {
 
 void hr_session_close(struct corerouter_session *cs) {
 	struct http_session *hr = (struct http_session *) cs;
-    close(hr->fuzz_fd);
+    //close(hr->fuzz_fd);
 	if (hr->path_info) {
 		free(hr->path_info);
 	}
@@ -1440,13 +1449,13 @@ int http_alloc_session(struct uwsgi_corerouter *ucr, struct uwsgi_gateway_socket
 	// set the retry hook
         cs->retry = hr_retry;
 	struct http_session *hr = (struct http_session *) cs;
-    hr->fuzz_fd = open("/tmp/fuzz", O_RDONLY);
+    /*hr->fuzz_fd = open("/tmp/fuzz", O_RDONLY);
     if (hr->fuzz_fd < 0) {
         perror("open");
         abort();
     }
 	// default hook
-    printf("alloc session\n");
+    printf("alloc session\n");*/
 
 	cs->main_peer->last_hook_read = hr_read;
 

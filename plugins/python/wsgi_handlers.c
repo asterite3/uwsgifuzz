@@ -345,6 +345,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	if (uwsgi_parse_vars(wsgi_req)) {
 		return -1;
 	}
+	//return -1;
 	if (wsgi_req->dynamic) {
         	// this part must be heavy locked in threaded modes
                 if (uwsgi.threads > 1) {

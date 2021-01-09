@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 //#include "uwsgi.h"
 #include "plugins/http/common.h"
@@ -8,6 +10,11 @@
 int fuzzer_inited = 0;
 
 extern char **environ;
+
+FILE * fuzz_buf_file;
+int fuzz_fd;
+int buf_fd;
+FILE * fuzz_file;
 //extern struct uwsgi_server uwsgi;
 
 int uwsgi_init(int argc, char *argv[], char *envp[]);
@@ -16,14 +23,34 @@ int uwsgi_init(int argc, char *argv[], char *envp[]);
     uwsgi_init(*argc, *argv, environ);
     return 0;
 }*/
-
 int external_uwsgi_proto_http_parser(struct wsgi_request *wsgi_req);
 
 void fuzzer_init() {
+    fuzz_buf_file = NULL;
     char * argv[] = {
-         "./uwsgi", "--logto", "/run/user/1000/fuzzlog", "--http-socket", ":5001", "--module", "testapp:app"
+         "./uwsgi", /*"--logto", "/run/user/1000/fuzzlog", */"--http", ":0       ", "--module", "testapp:app"
     };
     uwsgi_init(sizeof(argv)/ sizeof(char *), argv, environ);
+    buf_fd = memfd_create("fuzz_buf", 0);
+    if (buf_fd < 0) {
+        perror("memfd_create");
+        abort();
+    }
+    fuzz_buf_file = fdopen(buf_fd, "w");
+    if (fuzz_buf_file == NULL) {
+        perror("fdopen");
+        abort();
+    }
+    fuzz_fd = memfd_create("fuzz", 0);
+    if (fuzz_fd < 0) {
+        perror("memfd_create");
+        abort();
+    }
+    fuzz_file = fdopen(fuzz_fd, "w");
+    if (fuzz_file == NULL) {
+        perror("fdopen");
+        abort();
+    }
 }
 
 struct corerouter_peer *new_cr_peer() {
@@ -56,20 +83,44 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
         fuzzer_init();
         fuzzer_inited = 1;
     }
-    if (Size > 4080) {
+
+    /*if (Size > 4080) {
         return 0;
+    }*/
+    if (lseek(fuzz_fd, 0, SEEK_SET)) {
+        perror("lseek");
+        abort();
     }
-    FILE * fuzz_file = fopen("/tmp/fuzz", "w");
+    if (lseek(buf_fd, 0, SEEK_SET)) {
+        perror("lseek");
+        abort();
+    }
+    if (ftruncate(fuzz_fd, 0)) {
+        perror("ftruncate");
+    }
+    if (ftruncate(buf_fd, 0)) {
+        perror("ftruncate");
+    }
+    /*FILE * fuzz_file = fopen("/tmp/fuzz", "w");
     if (fuzz_file == NULL) {
         perror("fopen");
         abort();
-    }
+    }*/
     int n_written = fwrite(Data, 1, Size, fuzz_file);
     if (n_written != Size) {
         perror("fwrite");
         abort();
     }
-    fclose(fuzz_file);
+    if (fflush(fuzz_file)) {
+        perror("fflush");
+        abort();
+    }
+
+    if (lseek(fuzz_fd, 0, SEEK_SET)) {
+        perror("lseek");
+        abort();
+    }
+    //fclose(fuzz_file);
     struct wsgi_request req;
     //struct wsgi_request * wsgi_req = uwsgi.wsgi_req;//&uwsgi.workers[1].cores[0].req;
     struct wsgi_request * wsgi_req = &req;
@@ -95,6 +146,28 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     fake_sock.name = "hui";
 
     int res = hr_read(main_peer);
+    /*struct stat statbuf;
+    char buf[10000];
+    if (fstat(buf_fd, &statbuf)) {
+        perror("fstat");
+        abort();
+    }
+    if (lseek(buf_fd, 0, SEEK_SET)) {
+        perror("lseek");
+        abort();
+    }
+    fprintf(stderr, "%ld\n", statbuf.st_size);
+    int n_read = read(buf_fd, buf, statbuf.st_size);
+    if (n_read != statbuf.st_size) {
+        printf("read %d, expected %d\n", n_read, statbuf.st_size);
+        perror("read");
+        abort();
+    }
+    fprintf(stderr, "||||\n");
+    fwrite(buf, 1, statbuf.st_size, stderr);
+    fprintf(stderr, "||||\n");
+    lseek(buf_fd, 0, SEEK_SET);*/
+
     if (main_peer->prev != NULL) {
         struct corerouter_peer * new_peer = main_peer->prev;
         uwsgi_buffer_destroy(new_peer->in);
@@ -114,7 +187,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     wsgi_req_setup(wsgi_req, 0, &fake_sock);
     uwsgi_proto_uwsgi_setup(wsgi_req->socket);
 
-    wsgi_req->fd = open("/run/user/1000/fuzz_buf", O_RDONLY);
+    if (lseek(buf_fd, 0, SEEK_SET)) {
+        perror("lseek");
+        abort();
+    }
+
+    wsgi_req->fd = dup(buf_fd);//open("/run/user/1000/fuzz_buf", O_RDONLY);
     //printf("pp %d\n", wsgi_req->proto_parser_pos);
     wsgi_req_recv(0, wsgi_req);
     uwsgi_close_request(wsgi_req);
