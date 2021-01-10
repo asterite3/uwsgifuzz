@@ -1,5 +1,6 @@
 #include <uwsgi.h>
 
+extern int fuzz_response_fd;
 
 extern struct uwsgi_server uwsgi;
 
@@ -1474,7 +1475,7 @@ int wsgi_req_recv(int queue, struct wsgi_request *wsgi_req) {
 			/*sleep(1);
 			printf("REQUEST\n");*/
 	close(wsgi_req->fd);
-	wsgi_req->fd=dup(2);
+	wsgi_req->fd=dup(fuzz_response_fd);
 	wsgi_req->async_status = uwsgi.p[wsgi_req->uh->modifier1]->request(wsgi_req);
 	//sleep(20000);
 

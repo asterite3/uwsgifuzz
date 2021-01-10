@@ -141,6 +141,9 @@ void *uwsgi_request_subhandler_wsgi(struct wsgi_request *wsgi_req, struct uwsgi_
         /*if (badnamelen > 300) {
             badnamelen = 1000000000;
         }*/
+        /*if (badnamelen > 1000) {
+            abort();
+        }*/
 #ifdef UWSGI_DEBUG
                 uwsgi_debug("%.*s: %.*s\n", wsgi_req->hvec[i].iov_len, wsgi_req->hvec[i].iov_base, wsgi_req->hvec[i+1].iov_len, wsgi_req->hvec[i+1].iov_base);
 #endif

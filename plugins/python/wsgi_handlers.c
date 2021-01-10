@@ -410,13 +410,13 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 	// create WSGI environ
 	wsgi_req->async_environ = up.wsgi_env_create(wsgi_req, wi);
 
-	//fprintf(stderr, "run request_subhandler %p\n" ,wsgi_req);
+	fprintf(stderr, "run request_subhandler %p\n" ,wsgi_req);
 	wsgi_req->async_result = wi->request_subhandler(wsgi_req, wi);
 	//fprintf(stderr, "run request_subhandler DONE\n" );
 
 
 	if (wsgi_req->async_result) {
-
+		fprintf(stderr, "run resp subl %p\n" ,wsgi_req);
 
 		while (wi->response_subhandler(wsgi_req) != UWSGI_OK) {
 			if (uwsgi.async > 0) {
@@ -431,7 +431,7 @@ int uwsgi_request_wsgi(struct wsgi_request *wsgi_req) {
 
 
 	}
-
+	fprintf(stderr, "async res is %p\n" ,wsgi_req->async_result);
 	// this object must be freed/cleared always
 end:
 	if (wsgi_req->async_input) {

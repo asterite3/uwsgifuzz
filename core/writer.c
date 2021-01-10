@@ -101,7 +101,6 @@ int uwsgi_response_prepare_headers(struct wsgi_request *wsgi_req, char *status, 
 		wsgi_req->is_error_routing = 0;
 	}
 #endif
-    fprintf(stderr, "prep status\n" );
 	if (status_len <= 4) {
 		char *new_sc = NULL;
 		size_t new_sc_len = 0;

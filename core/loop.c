@@ -6,7 +6,6 @@ struct wsgi_request *threaded_current_wsgi_req() {
 	return pthread_getspecific(uwsgi.tur_key);
 }
 struct wsgi_request *simple_current_wsgi_req() {
-	fprintf(stderr, "curr: %p %d\n", uwsgi.wsgi_req, getpid());
 	return uwsgi.wsgi_req;
 }
 

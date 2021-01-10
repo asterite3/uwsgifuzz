@@ -644,6 +644,7 @@ logit:
 }
 
 void uwsgi_logit_simple(struct wsgi_request *wsgi_req) {
+	return;
 
 	// optimize this (please)
 	char time_request[26];

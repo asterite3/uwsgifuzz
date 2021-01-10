@@ -185,6 +185,14 @@ struct uwsgi_buffer *uwsgi_proto_base_prepare_headers(struct wsgi_request *wsgi_
 		ub = uwsgi_buffer_new(8 + sl + 2);
 		if (uwsgi_buffer_append(ub, "Status: ", 8)) goto end;
 	}
+    if (0&&sl > 0 && s[0] == '5') {
+        fprintf(stderr, "got status 500\n" );
+        abort();
+    }
+    if (0&&sl > 0 && s[0] == '3') {
+        fprintf(stderr, "got status 300\n" );
+        abort();
+    }
         if (uwsgi_buffer_append(ub, s, sl)) goto end;
 	if (uwsgi_buffer_append(ub, "\r\n", 2)) goto end;
         return ub;

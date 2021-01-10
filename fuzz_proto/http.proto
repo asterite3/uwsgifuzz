@@ -1,0 +1,15 @@
+syntax = "proto3";
+package uwsgifuzz;
+
+message Header {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message HttpRequest {
+    bytes method = 1;
+    bytes uri = 2;
+    bytes version = 3;
+    repeated Header headers = 5;
+    bytes body = 6;
+}

@@ -15,6 +15,7 @@ FILE * fuzz_buf_file;
 int fuzz_fd;
 int buf_fd;
 FILE * fuzz_file;
+int fuzz_response_fd;
 //extern struct uwsgi_server uwsgi;
 
 int uwsgi_init(int argc, char *argv[], char *envp[]);
@@ -28,7 +29,7 @@ int external_uwsgi_proto_http_parser(struct wsgi_request *wsgi_req);
 void fuzzer_init() {
     fuzz_buf_file = NULL;
     char * argv[] = {
-         "./uwsgi", /*"--logto", "/run/user/1000/fuzzlog", */"--http", ":0       ", "--module", "testapp:app"
+         "./uwsgi", /*"--logto", "/run/user/1000/fuzzlog", */"--http-socket", ":0       ", "--module", "testapp:app"
     };
     uwsgi_init(sizeof(argv)/ sizeof(char *), argv, environ);
     buf_fd = memfd_create("fuzz_buf", 0);
@@ -49,6 +50,11 @@ void fuzzer_init() {
     fuzz_file = fdopen(fuzz_fd, "w");
     if (fuzz_file == NULL) {
         perror("fdopen");
+        abort();
+    }
+    fuzz_response_fd = open("/run/user/1000/fuzz_responses", O_WRONLY | O_CREAT | O_APPEND);
+    if (fuzz_response_fd < 0) {
+        perror("open");
         abort();
     }
 }

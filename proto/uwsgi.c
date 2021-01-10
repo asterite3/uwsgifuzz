@@ -24,7 +24,7 @@ static int uwsgi_proto_uwsgi_parser(struct wsgi_request *wsgi_req) {
 				return UWSGI_OK;
 			}
 			if (wsgi_req->uh->_pktsize > uwsgi.buffer_size) {
-				uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->_pktsize, uwsgi.buffer_size);
+				//uwsgi_log("invalid request block size: %u (max %u)...skip\n", wsgi_req->uh->_pktsize, uwsgi.buffer_size);
 				return -1;
 			}
 		}
